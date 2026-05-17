@@ -313,8 +313,16 @@ const DEVICES = [
 const COLORS = ['#378ADD','#1D9E75','#D85A30','#D4537E','#BA7517','#639922','#3C3489','#0F6E56','#993C1D','#3B6D11','#185FA5','#85B7EB','#E24B4A','#EF9F27'];
 
 // ⚠️ 중요: 발급받으신 본인의 구글 Gemini API Key를 아래 따옴표 사이에 적어주세요.
-const AI_API_KEY = "AIzaSyCcRFQCuqviHbVhgs1yZ7d5q0ZIBzRlDF4"; 
+const AI_API_KEY = ""; 
+// 웹페이지가 열릴 때 내 API 키를 물어보고 브라우저에 임시 저장하는 안전장치 코드
+let myApiKey = localStorage.getItem("user_gemini_key") || "";
 
+if (!myApiKey) {
+  myApiKey = prompt("구글 Gemini API Key를 입력해주세요. (입력하신 키는 본인 브라우저에만 안전하게 저장됩니다):");
+  if (myApiKey) {
+    localStorage.setItem("user_gemini_key", myApiKey);
+  }
+}
 let state = DEVICES.map((d, i) => ({ ...d, hours: d.defaultH, active: i < 5 }));
 let chartInst;
 
@@ -336,7 +344,7 @@ async function processImage(input) {
     const base64ImageBytes = base64Data.split(',')[1]; 
 
     // ✅ 에러를 완벽하게 유발했던 주소를 정식 버전(/v1/models/gemini-2.5-flash)으로 전면 교체했습니다.
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${AI_API_KEY}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${myApiKey}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
