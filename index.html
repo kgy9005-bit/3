@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>스마트 홈 전력 소비 시뮬레이터 (AI 인식 포함)</title>
+<link rel="stylesheet" href="[https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.4.0/dist/tabler-icons.min.css](https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.4.0/dist/tabler-icons.min.css)" />
+<script src="[https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js](https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js)"></script>
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --surface: #ffffff;
+    --surface2: #f0eeea;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.18);
+    --text: #1a1a18;
+    --text2: #6b6a65;
+    --text3: #9b9a95;
+    --blue: #185FA5;
+    --blue-light: #E6F1FB;
+    --blue-mid: #378ADD;
+    --green: #0F6E56;
+    --green-light: #E1F5EE;
+    --green-mid: #1D9E75;
+    --amber: #854F0B;
+    --amber-light: #FAEEDA;
+    --amber-mid: #BA7517;
+    --red: #A32D2D;
+    --red-light: #FCEBEB;
+    --red-mid: #E24B4A;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111110;
+      --surface: #1c1c1a;
+      --surface2: #252523;
+      --border: rgba(255,255,255,0.1);
+      --border2: rgba(255,255,255,0.18);
+      --text: #f0efe9;
+      --text2: #a0a09a;
+      --text3: #6a6a64;
+      --blue-light: #042C53;
+      --blue-mid: #378ADD;
+      --green-light: #04342C;
+      --green-mid: #1D9E75;
+      --amber-light: #412402;
+      --amber-mid: #EF9F27;
+      --red-light: #501313;
+      --red-mid: #E24B4A;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.2);
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 15px; }
+
+  /* Header */
+  header { background: var(--surface); border-bottom: 0.5px solid var(--border); padding: 0 2rem; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); }
+  .header-inner { max-width: 1100px; margin: 0 auto; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; color: var(--text); }
+  .logo i { color: var(--blue-mid); font-size: 22px; }
+  .logo-sub { font-size: 12px; color: var(--text3); font-weight: 400; margin-left: 4px; }
+  .header-badge { font-size: 11px; background: var(--blue-light); color: var(--blue); padding: 3px 10px; border-radius: 20px; border: 0.5px solid var(--blue-mid); }
+
+  /* Layout */
+  main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  .hero { margin-bottom: 2rem; }
+  .hero h1 { font-size: 26px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .hero p { font-size: 14px; color: var(--text2); line-height: 1.6; }
+
+  .layout { display: grid; grid-template-columns: 1fr 360px; gap: 1.5rem; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+  /* Cards */
+  .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1.5rem; box-shadow: var(--shadow); }
+  .card + .card { margin-top: 1rem; }
+  .card-title { font-size: 12px; font-weight: 600; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 1rem; display: flex; align-items: center; gap: 6px; }
+  .card-title i { font-size: 15px; }
+
+  /* Device Grid */
+  .device-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 10px; }
+  .device-card { background: var(--surface2); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; transition: border-color 0.15s, background 0.15s; }
+  .device-card.active { background: var(--blue-light); border: 1.5px solid var(--blue-mid); }
+  .device-card.active .dev-name { color: var(--blue); }
+  .dev-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .dev-info .dev-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .dev-info .dev-watt { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .toggle { width: 34px; height: 19px; border-radius: 10px; background: var(--border2); position: relative; border: none; cursor: pointer; transition: background 0.2s; flex-shrink: 0; }
+  .toggle.on { background: var(--blue-mid); }
+  .toggle::after { content: ''; position: absolute; width: 15px; height: 15px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: left 0.2s; }
+  .toggle.on::after { left: 17px; }
+  .dev-slider-row { display: flex; align-items: center; gap: 8px; }
+  .dev-slider-row input[type=range] { flex: 1; accent-color: var(--blue-mid); }
+  .dev-slider-val { font-size: 11px; color: var(--text2); min-width: 28px; text-align: right; }
+
+  /* Custom add */
+  .custom-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+  .custom-row input { background: var(--surface2); border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 13px; color: var(--text); outline: none; }
+  .custom-row input:focus { border-color: var(--blue-mid); }
+  .custom-row input.name { flex: 1; min-width: 110px; }
+  .custom-row input.num { width: 90px; }
+  .add-btn { background: var(--blue-mid); color: white; border: none; border-radius: var(--radius-sm); padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; }
+  .add-btn:hover { opacity: 0.85; }
+
+  /* Metrics */
+  .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .metric { background: var(--surface2); border-radius: var(--radius-sm); padding: 14px 16px; }
+  .metric-label { font-size: 11px; color: var(--text3); margin-bottom: 5px; }
+  .metric-value { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1; }
+  .metric-unit { font-size: 11px; color: var(--text3); margin-left: 2px; font-weight: 400; }
+
+  /* Tier bar */
+  .tier-bar-bg { height: 12px; border-radius: 6px; background: var(--surface2); border: 0.5px solid var(--border); position: relative; overflow: hidden; margin: 8px 0 6px; }
+  .tier-bar-fill { height: 100%; border-radius: 6px; transition: width 0.4s ease, background 0.4s ease; }
+  .tier-sep { position: absolute; top: 0; bottom: 0; width: 1.5px; background: rgba(255,255,255,0.6); }
+  .tier-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text3); }
+
+  /* Bill breakdown */
+  .bill-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 0.5px solid var(--border); }
+  .bill-row:last-child { border-bottom: none; padding-top: 10px; font-weight: 700; font-size: 15px; }
+  .bill-row .bk { color: var(--text2); }
+  .bill-row .bv { color: var(--text); }
+  .bill-row:last-child .bv { color: var(--blue-mid); }
+
+  /* Solar */
+  .solar-slider-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .solar-slider-row label { font-size: 12px; color: var(--text2); white-space: nowrap; }
+  .solar-slider-row input[type=range] { flex: 1; accent-color: var(--green-mid); }
+  .solar-slider-row span { font-size: 13px; font-weight: 600; min-width: 38px; text-align: right; }
+  .solar-result { display: flex; align-items: center; gap: 12px; background: var(--green-light); border: 0.5px solid var(--green-mid); border-radius: var(--radius-sm); padding: 12px 14px; }
+  .solar-result i { font-size: 22px; color: var(--green); flex-shrink: 0; }
+  .solar-detail { flex: 1; font-size: 12px; color: var(--green); line-height: 1.8; }
+  .solar-save-num { font-size: 18px; font-weight: 700; color: var(--green); text-align: right; white-space: nowrap; }
+  .solar-save-label { font-size: 10px; color: var(--green); text-align: right; }
+
+  /* Chart */
+  .chart-wrap { position: relative; height: 220px; width: 100%; }
+  .legend-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); }
+  .legend-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+
+  /* Loading animation */
+  @keyframes spin { 100% { transform: rotate(360deg); } }
+
+  /* Footer */
+  footer { text-align: center; padding: 2rem; font-size: 12px; color: var(--text3); border-top: 0.5px solid var(--border); margin-top: 2rem; }
+  footer span { color: var(--blue-mid); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <i class="ti ti-bolt"></i>
+      스마트 홈 전력 소비 시뮬레이터
+      <span class="logo-sub">by AI 코딩 과제</span>
+    </div>
+    <div class="header-badge">한전 2024 요금 기준</div>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <h1>내 집 전기요금, 직접 계산해보세요</h1>
+    <p>가전기기를 선택하고 사용 시간을 조절하면 한국전력 누진세 요금을 실시간으로 계산합니다. 태양광 패널 및 카메라 인식 추가 기능도 지원합니다.</p>
+  </div>
+
+  <div class="layout">
+
+    <div>
+      <div class="card">
+        <div class="card-title"><i class="ti ti-device-desktop"></i> 가전기기 선택 및 사용시간 설정</div>
+        <div class="device-grid" id="deviceGrid"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><i class="ti ti-camera"></i> 사진으로 기기 자동 인식</div>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;" onchange="processImage(this)" />
+          <button class="add-btn" style="background: var(--green-mid); width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="document.getElementById('cameraInput').click()">
+            <i class="ti ti-camera" style="font-size: 16px;"></i> 가전제품 명판 / 라벨 촬영하기
+          </button>
+          <div id="aiStatus" style="font-size: 12px; color: var(--text3); text-align: center; display: none;">
+            <i class="ti ti-loader" style="display: inline-block; animation: spin 1s linear infinite; margin-right: 4px;"></i> AI가 사진 속 전력 소비량을 분석하고 있습니다...
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><i class="ti ti-plus"></i> 기기 직접 수동 추가</div>
+        <div class="custom-row">
+          <input class="name" type="text" id="custName" placeholder="기기 이름" />
+          <input class="num" type="number" id="custW" placeholder="소비전력 (W)" min="1" max="10000" />
+          <input class="num" type="number" id="custH" placeholder="일 사용시간 (h)" min="0.5" max="24" step="0.5" />
+          <button class="add-btn" onclick="addCustom()">추가하기</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><i class="ti ti-chart-donut"></i> 기기별 소비 비율</div>
+        <div class="chart-wrap">
+          <canvas id="deviceChart" role="img" aria-label="가전기기별 월 소비전력 비율 도넛 차트">기기별 소비전력 비율</canvas>
+        </div>
+        <div class="legend-wrap" id="chartLegend"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <div class="card-title"><i class="ti ti-dashboard"></i> 이번 달 소비 요약</div>
+        <div class="metric-grid">
+          <div class="metric">
+            <div class="metric-label">월 소비전력</div>
+            <div class="metric-value"><span id="mKwh">0</span><span class="metric-unit">kWh</span></div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">일 평균</div>
+            <div class="metric-value"><span id="dKwh">0</span><span class="metric-unit">kWh/일</span></div>
+          </div>
+          <div class="metric" style="grid-column: 1 / -1;">
+            <div class="metric-label">예상 전기요금</div>
+            <div class="metric-value" style="font-size: 28px;"><span id="bill">0</span><span class="metric-unit" style="font-size:14px;">원/월</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><i class="ti ti-chart-bar"></i> 한전 누진 구간</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <span style="font-size:13px; color:var(--text2);">현재 구간</span>
+          <span id="tierLabel" style="font-size:14px; font-weight:700;">—</span>
+        </div>
+        <div class="tier-bar-bg">
+          <div class="tier-bar-fill" id="tierFill" style="width:0%;"></div>
+          <div class="tier-sep" style="left:33.3%;"></div>
+          <div class="tier-sep" style="left:66.6%;"></div>
+        </div>
+        <div class="tier-labels">
+          <span>0</span><span style="color:var(--green-mid);">200kWh</span><span style="color:var(--amber-mid);">400kWh</span><span style="color:var(--red-mid);">600+</span>
+        </div>
+        <div style="margin-top:10px; font-size:12px; color:var(--text3); line-height:1.7;">
+          1구간 ≤200kWh · 2구간 201~400kWh · 3구간 400kWh 초과
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><i class="ti ti-receipt"></i> 요금 상세 내역</div>
+        <div class="bill-row"><span class="bk">기본요금</span><span class="bv" id="bBase">0원</span></div>
+        <div class="bill-row"><span class="bk">1구간 (93.3원/kWh, ~200kWh)</span><span class="bv" id="bT1">0원</span></div>
+        <div class="bill-row"><span class="bk">2구간 (187.9원/kWh, ~400kWh)</span><span class="bv" id="bT2">0원</span></div>
+        <div class="bill-row"><span class="bk">3구간 (280.6원/kWh, 초과분)</span><span class="bv" id="bT3">0원</span></div>
+        <div class="bill-row"><span class="bk">부가세 (10%)</span><span class="bv" id="bVat">0원</span></div>
+        <div class="bill-row"><span class="bk">전력기반기금 (3.7%)</span><span class="bv" id="bFund">0원</span></div>
+        <div class="bill-row"><span class="bk">최종 청구 금액</span><span class="bv" id="bTotal">0원</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><i class="ti ti-solar-panel"></i> 태양광 패널 절감 시뮬레이션</div>
+        <div class="solar-slider-row">
+          <label>패널 용량</label>
+          <input type="range" min="0" max="10" value="3" step="0.5" id="solarKw" />
+          <span id="solarKwVal">3 kW</span>
+        </div>
+        <div class="solar-result">
+          <i class="ti ti-sun"></i>
+          <div class="solar-detail">
+            월 발전량: <strong id="solarGen">—</strong><br/>
+            CO₂ 절감: <span id="solarCo2">—</span>
+          </div>
+          <div>
+            <div class="solar-save-label">월 절감 예상</div>
+            <div class="solar-save-num" id="solarSave">—</div>
+          </div>
+        </div>
+        <div style="font-size:11px; color:var(--text3); margin-top:10px; line-height:1.6;">
+          * 일 평균 일조량 3.5h, 한국 평균 기준 추정값입니다.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  <p>한국전력공사 2024년 주택용 저압 요금 기준 | <span>AI 코딩 과제 — 전력/에너지 응용 프로그램</span></p>
+  <p style="margin-top:4px;">Claude AI (Anthropic) + Gemini Vision API로 제작</p>
+</footer>
+
+<script>
+const DEVICES = [
+  { name: '냉장고', w: 150, defaultH: 24, icon: 'ti-box' },
+  { name: 'TV (55인치)', w: 120, defaultH: 5, icon: 'ti-device-tv' },
+  { name: '에어컨', w: 1500, defaultH: 6, icon: 'ti-air-conditioning' },
+  { name: '세탁기', w: 500, defaultH: 1, icon: 'ti-wash-machine' },
+  { name: '전기밥솥', w: 700, defaultH: 1.5, icon: 'ti-flame' },
+  { name: '전자레인지', w: 1000, defaultH: 0.5, icon: 'ti-microwave' },
+  { name: '컴퓨터+모니터', w: 250, defaultH: 8, icon: 'ti-device-desktop' },
+  { name: '조명 (LED 전체)', w: 80, defaultH: 6, icon: 'ti-bulb' },
+  { name: '전기히터', w: 1200, defaultH: 4, icon: 'ti-sun' },
+  { name: '공기청정기', w: 50, defaultH: 12, icon: 'ti-wind' },
+  { name: '식기세척기', w: 1800, defaultH: 1, icon: 'ti-droplet' },
+  { name: '드라이기', w: 1200, defaultH: 0.5, icon: 'ti-wand' },
+];
+
+const COLORS = ['#378ADD','#1D9E75','#D85A30','#D4537E','#BA7517','#639922','#3C3489','#0F6E56','#993C1D','#3B6D11','#185FA5','#85B7EB','#E24B4A','#EF9F27'];
+
+// ⚠️ 중요: 발급받으신 본인의 구글 Gemini API Key를 아래 따옴표 사이에 적어주세요.
+const AI_API_KEY = "AIzaSyCcRFQCuqviHbVhgs1yZ7d5q0ZIBzRlDF4"; 
+
+let state = DEVICES.map((d, i) => ({ ...d, hours: d.defaultH, active: i < 5 }));
+let chartInst;
+
+async function processImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  if (AI_API_KEY === "YOUR_GEMINI_API_KEY" || !AI_API_KEY) {
+    alert("코드 내부 스크립트 영역(약 263번째 줄)의 'AI_API_KEY' 변수에 실제 Gemini API 키를 등록하셔야 사진 분석이 가동됩니다.");
+    input.value = '';
+    return;
+  }
+
+  const statusEl = document.getElementById('aiStatus');
+  statusEl.style.display = 'block';
+
+  try {
+    const base64Data = await fileToBase64(file);
+    const base64ImageBytes = base64Data.split(',')[1]; 
+
+    // ✅ 에러를 완벽하게 유발했던 주소를 정식 버전(/v1/models/gemini-1.5-flash)으로 전면 교체했습니다.
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${AI_API_KEY}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: "이 사진은 가전제품 본체 또는 에너지소비효율등급 라벨, 사양 명판 사진입니다. 사진 속 제품의 직관적인 '한글 대표 명칭(예: 삼성 드럼세탁기, LG 스탠드 에어컨 등)'과 '정격 소비전력 또는 정격입력값(W 단위 숫자)'을 추출하세요. 다른 설명이나 텍스트 마크다운은 절대 배제하고 오직 딱 한 줄의 {\\\"name\\\": \\\"제품이름\\\", \\\"watt\\\": 숫자} 구조를 가진 순수 JSON 포맷으로만 출력하세요. 소비전력이 kW 단위로 표시되어 있다면 정수형 W 단위로 환산해 적용하세요." },
+            { inlineData: { mimeType: file.type, data: base64ImageBytes } }
+          ]
+        }]
+      })
+    });
+
+    if (!response.ok) throw new Error("API 요청 전송에 실패했습니다.");
+
+    const result = await response.json();
+    
+    let responseText = result.candidates[0].content.parts[0].text.trim();
+    if (responseText.includes("```")) {
+      responseText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
+    }
+    
+    const deviceData = JSON.parse(responseText);
+    
+    if (deviceData.name && deviceData.watt) {
+      state.push({
+        name: deviceData.name,
+        w: parseFloat(deviceData.watt),
+        defaultH: 2,
+        hours: 2,
+        active: true,
+        icon: 'ti-camera'
+      });
+      
+      renderGrid();
+      alert(`🎉 [${deviceData.name} / ${deviceData.watt}W] 인식 성공! 목록에 자동 등록되었습니다.`);
+    } else {
+      alert("글자 판독에 실패했거나 전력 정보가 누락되었습니다. 수동으로 입력하거나 선명하게 다시 촬영해 주세요.");
+    }
+
+  } catch (error) {
+    console.error("AI 인식 오류:", error);
+    alert("구글 AI 서버 통신 중 오류가 발생했습니다. 개발자 도구(F12)의 네트워크 탭을 확인하거나 API 키 상태를 점검하세요.");
+  } finally {
+    statusEl.style.display = 'none';
+    input.value = ''; 
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+  });
+}
+
+function renderGrid() {
+  const grid = document.getElementById('deviceGrid');
+  grid.innerHTML = '';
+  state.forEach((d, i) => {
+    const el = document.createElement('div');
+    el.className = 'device-card' + (d.active ? ' active' : '');
+    el.innerHTML = `
+      <div class="dev-top">
+        <div class="dev-info">
+          <div class="dev-name"><i class="ti ${d.icon}" style="font-size:14px; margin-right:4px;"></i>${d.name}</div>
+          <div class="dev-watt">${d.w} W</div>
+        </div>
+        <button class="toggle ${d.active ? 'on' : ''}" onclick="toggleDev(${i})" aria-label="${d.name} 토글"></button>
+      </div>
+      <div class="dev-slider-row">
+        <input type="range" min="0.5" max="24" step="0.5" value="${d.hours}" ${!d.active ? 'disabled' : ''} oninput="setHours(${i}, this.value)" style="${!d.active ? 'opacity:0.35' : ''}">
+        <span class="dev-slider-val">${d.hours}h</span>
+      </div>`;
+    grid.appendChild(el);
+  });
+  recalc();
+}
+
+function toggleDev(i) { state[i].active = !state[i].active; renderGrid(); }
+function setHours(i, v) { state[i].hours = parseFloat(v); renderGrid(); }
+
+function addCustom() {
+  const name = document.getElementById('custName').value.trim();
+  const w = parseFloat(document.getElementById('custW').value);
+  const h = parseFloat(document.getElementById('custH').value);
+  if (!name || !w || !h || w <= 0 || h <= 0) { alert('이름, 소비전력, 사용시간을 모두 입력해주세요.'); return; }
+  state.push({ name, w, defaultH: h, hours: h, active: true, icon: 'ti-plug' });
+  document.getElementById('custName').value = '';
+  document.getElementById('custW').value = '';
+  document.getElementById('custH').value = '';
+  renderGrid();
+}
+
+function calcBill(kwh) {
+  let base = 0, t1 = 0, t2 = 0, t3 = 0;
+  if (kwh <= 200) { base = 910; t1 = kwh * 93.3; }
+  else if (kwh <= 400) { base = 1600; t1 = 200 * 93.3; t2 = (kwh - 200) * 187.9; }
+  else { base = 7300; t1 = 200 * 93.3; t2 = 200 * 187.9; t3 = (kwh - 400) * 280.6; }
+  const sub = base + t1 + t2 + t3;
+  const vat = sub * 0.1;
+  const fund = sub * 0.037;
+  return { base, t1, t2, t3, vat, fund, total: Math.round(sub + vat + fund) };
+}
+
+function fmt(v) { return Math.round(v).toLocaleString('ko-KR') + '원'; }
+
+function recalc() {
+  const active = state.filter(d => d.active);
+  const dailyKwh = active.reduce((s, d) => s + d.w * d.hours / 1000, 0);
+  const monthKwh = dailyKwh * 30;
+  const { base, t1, t2, t3, vat, fund, total } = calcBill(monthKwh);
+
+  document.getElementById('mKwh').textContent = monthKwh.toFixed(1);
+  document.getElementById('dKwh').textContent = dailyKwh.toFixed(2);
+  document.getElementById('bill').textContent = total.toLocaleString('ko-KR');
+
+  const tier = monthKwh <= 200 ? '1구간 ✅' : monthKwh <= 400 ? '2구간 ⚠️' : '3구간 🔴';
+  const tierColor = monthKwh <= 200 ? 'var(--green-mid)' : monthKwh <= 400 ? 'var(--amber-mid)' : 'var(--red-mid)';
+  document.getElementById('tierLabel').textContent = tier;
+  document.getElementById('tierLabel').style.color = tierColor;
+
+  const pct = Math.min((monthKwh / 600) * 100, 100);
+  document.getElementById('tierFill').style.width = pct + '%';
+  document.getElementById('tierFill').style.background = tierColor;
+
+  document.getElementById('bBase').textContent = fmt(base);
+  document.getElementById('bT1').textContent = fmt(t1);
+  document.getElementById('bT2').textContent = fmt(t2);
+  document.getElementById('bT3').textContent = fmt(t3);
+  document.getElementById('bVat').textContent = fmt(vat);
+  document.getElementById('bFund').textContent = fmt(fund);
+  document.getElementById('bTotal').textContent = fmt(total);
+
+  updateSolar(monthKwh, total);
+  updateChart(active);
+}
+
+function updateSolar(monthKwh, beforeBill) {
+  const kw = parseFloat(document.getElementById('solarKw').value);
+  document.getElementById('solarKwVal').textContent = kw + ' kW';
+  if (monthKwh === undefined) {
+    const active = state.filter(d => d.active);
+    monthKwh = active.reduce((s, d) => s + d.w * d.hours / 1000, 0) * 30;
+    beforeBill = calcBill(monthKwh).total;
+  }
+  const genKwh = kw * 3.5 * 30;
+  const afterKwh = Math.max(0, monthKwh - genKwh);
+  const afterBill = calcBill(afterKwh).total;
+  const save = Math.max(0, beforeBill - afterBill);
+  const co2 = (genKwh * 0.4599).toFixed(1);
+  document.getElementById('solarGen').textContent = genKwh.toFixed(0) + ' kWh/월';
+  document.getElementById('solarCo2').textContent = co2 + ' kg';
+  document.getElementById('solarSave').textContent = save.toLocaleString('ko-KR') + '원';
+}
+
+function updateChart(active) {
+  const labels = active.map(d => d.name);
+  const data = active.map(d => parseFloat((d.w * d.hours * 30 / 1000).toFixed(2)));
+  const colors = active.map((_, i) => COLORS[i % COLORS.length]);
+
+  document.getElementById('chartLegend').innerHTML = active.map((d, i) => {
+    const kwh = (d.w * d.hours * 30 / 1000).toFixed(1);
+    return `<div class="legend-item"><div class="legend-dot" style="background:${colors[i]}"></div>${d.name} ${kwh}kWh</div>`;
+  }).join('');
+
+  if (chartInst) chartInst.destroy();
+  if (active.length === 0) return;
+  chartInst = new Chart(document.getElementById('deviceChart'), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: getComputedStyle(document.body).getPropertyValue('--surface') || '#fff' }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '60%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed.toFixed(1)} kWh` } }
+      }
+    }
+  });
+}
+
+document.getElementById('solarKw').addEventListener('input', () => updateSolar());
+renderGrid();
+</script>
+</body>
+</html>
